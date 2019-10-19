@@ -1,4 +1,4 @@
-const User = require('../models/User')
+const db = require('../models')
 const jwt = require('jwt-simple');
 const config = require('../config');
 
@@ -14,32 +14,37 @@ exports.signin = function(req, res, next) {
 }
 
 exports.signup = function(req, res, next) {
-	const email = req.body.email;
-	const password = req.body.password
+  const { username, email, password } = req.body
 
-	if (!email || !password) {
-		return res.status(422).send({ error: "Username and password are both required."})
-	}
-	// see if user with given email exist
-	User.findOne({ email: email }, function(err, existingUser) {
-		if (err) { return next(err); }
+	if (!username || !password || !email) {
+		return res.status(422).send({ error: "Username, password, and email are all required."})
+  }
+  
+  // see if username exist
+  
+  db.User.findOne({where: {username: username} }).then( existingUser => {
 
-		// if a user with email does exist, return an error
+		if (existingUser) 
+		return res.status(422).send({ error: "Username is taken" })
+		})
 
-		if (existingUser)
-				return res.status(422).send({ error: "Email is in use" });
+		.catch( error => {
+			if(error) {return `Error signing up username. \n ${error}` }
+		})		
 
-		// if a user without email does not exist, create and save user record.
-		const user = new User({
-				email: email,
-				password: password
+		// create and save user record.
+
+		const user = new db.User({
+			username: username,
+			email: email,
+			password: password
 		});
 
-		user.save(function(err) {
-				if(err) { return next(err); }
-
-					// Respond to request indicating user was created.
-					res.json({ token: tokenForUser(user) });
-		});
-	}); 
-}
+		user.save().then( () => {
+			res.json({ token: tokenForUser(user) })
+			})
+			.catch( error => {
+				if(error) {return `Error signing up username. \n ${error}` }
+			})
+	};
+	

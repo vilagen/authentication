@@ -1,51 +1,53 @@
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
-const bcrypt = require("bcrypt-nodejs");
+const bcrypt = require("bcryptjs");
 
-// Define our model
-const userSchema = new Schema ({
-    email: {
-        type: String,
-        lowercase: true,
-        unique: true 
-    },
+module.exports = function(sequelize, DataTypes) {
+	let User = sequelize.define("User", {
+			
+		username: {
+			type: DataTypes.STRING,
+			allowNull: false,
+			unique: true,
+			validate: {
+				min: 6,
+				// msg: "Username must at least be 6 characters.",
+				// notNull: {
+				// 	msg: "Please enter a username"
+				// }
+			}
+		},
 
-    password: String
-});
+		email: {
+			type: DataTypes.STRING,
+			allowNull: false,
+			validate: {
+				isEmail: true,
+				// msg: "This field must be a valid email.",
+				// notNull: {
+				// 	msg: "Email is required."
+				// }
+			}
+		},
 
-// On Save Hook, encrypt password
-// Pre means that before the model gets saved, run the following function
-userSchema.pre('save', function(next) {
-    // get access to the user model
-    const user = this;
+		password: {
+			type: DataTypes.STRING,
+			allowNull: false,
+			validate: {
+				min: 8,
+				// msg: "Password requires at least 8 characters.",
+				// notNull: {
+				// 	msg: "A password is required."
+				// }
+			}
+		}
+	});
 
-    // generate a salt then run callback
-    bcrypt.genSalt(10, function(err, salt) {
-        if(err) { return next(err); }
-
-        // hash (encrypt) our password using this salt
-        bcrypt.hash(user.password, salt, null, function(err, hash) {
-            if (err) { return next(err); }
-
-            // overwrite plain text password with encrypted password
-            user.password = hash;
-            next();
-        });
-    });
-});
-
-userSchema.methods.comparePassword = function(candidatePassword, callback) {
-	bcrypt.compare(candidatePassword, this.password, function(err, isMatch) {
-		if (err) { return callback(err); }
-
-		callback(null, isMatch);
-	})
+	User.addHook("beforeCreate", function(user) {
+		user.password = bcrypt.hashSync(user.password, bcrypt.genSaltSync(10), null);
+	});
+		
+	User.prototype.validPassword = function(password) {
+		return bcrypt.compareSync(password, this.password);
+	};
+		
+	return User;
 }
-
-
-// Create the model class
-
-const UserClass = mongoose.model('user', userSchema)
-
-// Export the model
-module.exports = UserClass
