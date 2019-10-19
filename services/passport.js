@@ -1,29 +1,33 @@
+
 const passport = require('passport');
-const User = require('../models/User');
+const db = require('../models')
 const config = require('../config');
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const localStrategy = require('passport-local');
 
 // Create Local strategy
-const localOptions = { usernameField: 'email'}; // by default, local strategy looks for username, not email.
-const localLogin = new localStrategy(localOptions, function(email, password, done) {
-	// Verify this username and password, call done with the user
-	// if it is the correct username and password
-	// otherwise, call done with false
-	User.findOne({ email:email }, function(err, user) {
+const localOptions = { usernameField: 'username'}; // by default, local strategy looks for username, not email.
+const localLogin = new localStrategy(localOptions, function(username, password, done) {
+	db.User.findOne({where: {username: username} }), function(err, user) {
 		if (err) { return done(err); }
-		if (!user) { return done(null, false); }
+		if (!user) { return done(null, false, {
+            message: "Incorrect username or doesn't exist."
+            });
+        }
 
 		// compare passwords - is "password" equal to user.password?
 		user.comparePassword(password, function(err, isMatch) {
 			if (err) { return done(err); }
-			if (!isMatch) { return done(null, false); }
+			if (!isMatch) { return done(null, false, {
+                message: "Incorrect username or password."
+            }); 
+        }
 
 			return done(null, user);
 			// the user is returned as 'req.user' from Passport
 		})
-	})
+    }
 })
 
 // Setup options for JWT Strategy
@@ -38,17 +42,18 @@ const jwtLogin = new JwtStrategy(jwtOptions, function(payload, done) {
 	// See if the user ID in the payload exists in our database
 	// If it does, call 'done' with that user
 	// Otherwise, call done without a user object
-	User.findById(payload.sub, function(err, user) {
+	db.User.findByPk(payload.sub).then( (user, err) => {
 		if (err) { return done(err, false); }
 
 		if (user) {
 			done(null, user);
-		} else {
+		} 
+		else {
 			done(null, false);
 		}
 	});
+	console.log(payload)
 });
-
 
 // Tell passport to use this strategy
 passport.use(jwtLogin);
