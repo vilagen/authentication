@@ -1,3 +1,3 @@
-module.export = {
-  secert: 'thisIsASecretToEveryone'
+module.exports = {
+  secret: 'thisIsASecretToEveryone'
 };
